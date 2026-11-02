@@ -1,27 +1,33 @@
-import { useEffect, useState } from "react";
-import { io } from "socket.io-client";
+import { useState } from "react";
+import { SvgCanvas, type Tool } from "./components/SvgCanvas";
+import { Toolbar } from "./components/Toolbar";
+import { useShapes } from "./hooks/useShapes";
 
-const socket = io(); // Подключение через прокси Vite
-
-function App() {
-  const [isConnected, setIsConnected] = useState(socket.connected);
-
-  useEffect(() => {
-    socket.on("connect", () => setIsConnected(true));
-    socket.on("disconnect", () => setIsConnected(false));
-
-    return () => {
-      socket.off("connect");
-      socket.off("disconnect");
-    };
-  }, []);
+export default function App() {
+  const { shapes, addShape } = useShapes();
+  const [tool, setTool] = useState<Tool>("rect");
+  const [color, setColor] = useState("#e11d48");
+  const [strokeWidth, setStrokeWidth] = useState(2);
 
   return (
-    <div>
-      <h1>Vector Collab Editor</h1>
-      <p>Статус: {isConnected ? "Подключено" : "Отключено"}</p>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+      <Toolbar
+        tool={tool}
+        color={color}
+        strokeWidth={strokeWidth}
+        onToolChange={setTool}
+        onColorChange={setColor}
+        onStrokeWidthChange={setStrokeWidth}
+      />
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <SvgCanvas
+          shapes={shapes}
+          tool={tool}
+          color={color}
+          strokeWidth={strokeWidth}
+          onAddShape={addShape}
+        />
+      </div>
     </div>
   );
 }
-
-export default App;
