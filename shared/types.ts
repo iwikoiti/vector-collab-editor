@@ -35,4 +35,5 @@ export interface ClientToServerEvents {
   'shape:add': (shape: Shape) => void;
   'shape:update': (shape: Shape) => void;
   'shape:delete': (id: string) => void;
+  'get:history': () => void;
 }

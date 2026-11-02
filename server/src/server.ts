@@ -25,8 +25,9 @@ const shapes: Shape[] = [];
 io.on('connection', (socket) => {
   console.log('Клиент подключен:', socket.id);
 
-  //новому клиенту - вся история сразу
-  socket.emit('history', shapes);
+  socket.on('get:history', () => {
+    socket.emit('history', shapes);
+  });
 
   socket.on('shape:add', (shape) =>{
     shapes.push(shape);
