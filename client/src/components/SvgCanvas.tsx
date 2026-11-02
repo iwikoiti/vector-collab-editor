@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import type { Shape } from "@shared/types";
 import { clientToSvg } from "../lib/svgCoords";
 import { ShapeNode } from "./ShapeNode";
+import { SelectionOverlay } from "./SelectionOverlay";
 
 export type Tool = "circle" | "rect";
 
@@ -10,7 +11,10 @@ interface Props {
   tool: Tool;
   color: string;
   strokeWidth: number;
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
   onAddShape: (shape: Shape) => void;
+  onUpdateShape: (shape: Shape) => void;
 }
 
 interface Draft {
@@ -20,53 +24,131 @@ interface Draft {
   currentY: number;
 }
 
+interface DragState {
+  id: string;
+  startX: number;
+  startY: number;
+  originalShape: Shape;
+  moved: boolean;
+}
+
 const VIEWBOX_SIZE = 1000;
 const MIN_SIZE = 2; // миссклик
+const MOVE_THRESHOLD = 3;
 
 export function SvgCanvas({
   shapes,
   tool,
   color,
   strokeWidth,
+  selectedId,
+  onSelect,
   onAddShape,
+  onUpdateShape,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [drag, setDrag] = useState<DragState | null>(null);
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
 
   const point = (e: React.PointerEvent) => {
     if (!svgRef.current) return null;
     return clientToSvg(svgRef.current, e.clientX, e.clientY);
   };
 
-  const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+  const handleCanvasPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (e.button !== 0) return;
+    // Клик по пустому месту — сбрасываем выделение и начинаем рисовать
+    onSelect(null);
     const pt = point(e);
     if (!pt) return;
-    svgRef.current?.setPointerCapture(e.pointerId); //если пользователь вывел курсор за пределы SVG во время рисования, события всё равно придут
+    svgRef.current?.setPointerCapture(e.pointerId);
     setDraft({ startX: pt.x, startY: pt.y, currentX: pt.x, currentY: pt.y });
   };
 
-  const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (!draft) return;
+  const handleShapePointerDown = (e: React.PointerEvent, shape: Shape) => {
+    if (e.button !== 0) return;
+    e.stopPropagation(); // не даём канвасу начать новую фигуру
     const pt = point(e);
     if (!pt) return;
-    setDraft((d) => (d ? { ...d, currentX: pt.x, currentY: pt.y } : d));
+    onSelect(shape.id);
+    svgRef.current?.setPointerCapture(e.pointerId);
+    setDrag({
+      id: shape.id,
+      startX: pt.x,
+      startY: pt.y,
+      originalShape: shape,
+      moved: false,
+    });
+    setDragPos({
+      x: shape.type === "circle" ? shape.cx : shape.x,
+      y: shape.type === "circle" ? shape.cy : shape.y,
+    });
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    const pt = point(e);
+    if (!pt) return;
+
+    if (draft) {
+      setDraft({ ...draft, currentX: pt.x, currentY: pt.y });
+      return;
+    }
+
+    if (drag) {
+      const dx = pt.x - drag.startX;
+      const dy = pt.y - drag.startY;
+
+      if (!drag.moved && Math.hypot(dx, dy) < MOVE_THRESHOLD) return; //клик - выделение, а не перемещение
+      if (!drag.moved) setDrag({ ...drag, moved: true });
+
+      const orig = drag.originalShape;
+      setDragPos({
+        x: (orig.type === "circle" ? orig.cx : orig.x) + dx,
+        y: (orig.type === "circle" ? orig.cy : orig.y) + dy,
+      });
+    }
   };
 
   const handlePointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (!draft) return;
-    const pt = point(e) ?? { x: draft.currentX, y: draft.currentY };
-    setDraft(null);
-    const shape = buildShape(
-      draft.startX,
-      draft.startY,
-      pt.x,
-      pt.y,
-      tool,
-      color,
-      strokeWidth,
-    );
-    if (shape) onAddShape(shape);
+    if (draft) {
+      const pt = point(e) ?? { x: draft.currentX, y: draft.currentY };
+      const shape = buildShape(
+        draft.startX,
+        draft.startY,
+        pt.x,
+        pt.y,
+        tool,
+        color,
+        strokeWidth,
+      );
+      setDraft(null);
+      if (shape) onAddShape(shape);
+      return;
+    }
+
+    if (drag) {
+      if (drag.moved && dragPos) {
+        const orig = drag.originalShape;
+        const updated: Shape =
+          orig.type === "circle"
+            ? { ...orig, cx: dragPos.x, cy: dragPos.y }
+            : { ...orig, x: dragPos.x, y: dragPos.y };
+        onUpdateShape(updated); // единственный emit за весь drag
+      }
+      setDrag(null);
+      setDragPos(null);
+    }
+  };
+
+  // Подменяем позицию фигуры во время drag — не трогая shapes
+  const shapeToRender = (s: Shape): Shape => {
+    if (drag && s.id === drag.id && dragPos) {
+      return s.type === "circle"
+        ? { ...s, cx: dragPos.x, cy: dragPos.y }
+        : { ...s, x: dragPos.x, y: dragPos.y };
+    }
+    return s;
   };
 
   const preview = draft
@@ -82,6 +164,9 @@ export function SvgCanvas({
       )
     : null;
 
+  const selectedShape = shapes.find((s) => s.id === selectedId);
+  const displaySelected = selectedShape ? shapeToRender(selectedShape) : null;
+
   return (
     <svg
       ref={svgRef}
@@ -91,18 +176,23 @@ export function SvgCanvas({
         width: "100%",
         height: "100%",
         background: "#fff",
-        cursor: "crosshair",
+        cursor: drag ? "grabbing" : "crosshair",
         touchAction: "none",
         display: "block",
       }}
-      onPointerDown={handlePointerDown}
+      onPointerDown={handleCanvasPointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
     >
       {shapes.map((s) => (
-        <ShapeNode key={s.id} shape={s} />
+        <ShapeNode
+          key={s.id}
+          shape={shapeToRender(s)}
+          onPointerDown={handleShapePointerDown}
+        />
       ))}
+      {displaySelected && <SelectionOverlay shape={displaySelected} />}
       {preview && <ShapeNode shape={preview} preview />}
     </svg>
   );

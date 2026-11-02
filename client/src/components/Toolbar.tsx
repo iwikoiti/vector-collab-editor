@@ -4,18 +4,22 @@ interface Props {
   tool: Tool;
   color: string;
   strokeWidth: number;
+  hasSelection: boolean;
   onToolChange: (t: Tool) => void;
   onColorChange: (c: string) => void;
   onStrokeWidthChange: (w: number) => void;
+  onDelete: () => void;
 }
 
 export function Toolbar({
   tool,
   color,
   strokeWidth,
+  hasSelection,
   onToolChange,
   onColorChange,
   onStrokeWidthChange,
+  onDelete,
 }: Props) {
   return (
     <div
@@ -59,6 +63,14 @@ export function Toolbar({
         />
         <span>{strokeWidth}</span>
       </label>
+      {hasSelection && (
+        <button
+          onClick={onDelete}
+          style={{ marginLeft: "auto", color: "#b91c1c" }}
+        >
+          Удалить фигуру
+        </button>
+      )}
     </div>
   );
 }

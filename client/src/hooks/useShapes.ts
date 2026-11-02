@@ -32,5 +32,16 @@ export function useShapes() {
     setShapes((prev) => [...prev, shape]);
     socket.emit("shape:add", shape);
   };
-  return { shapes, addShape };
+
+  const updateShape = (shape: Shape) => {
+    setShapes((prev) => prev.map((s) => (s.id === shape.id ? shape : s)));
+    socket.emit('shape:update', shape);
+  };
+
+  const deleteShape = (id: string) => {
+    setShapes((prev) => prev.filter((s) => s.id !== id));
+    socket.emit('shape:delete', id);
+  };
+
+  return { shapes, addShape, updateShape, deleteShape };
 }
