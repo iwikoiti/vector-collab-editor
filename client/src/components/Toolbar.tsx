@@ -5,10 +5,12 @@ interface Props {
   color: string;
   strokeWidth: number;
   hasSelection: boolean;
+  shapesCount: number;
   onToolChange: (t: Tool) => void;
   onColorChange: (c: string) => void;
   onStrokeWidthChange: (w: number) => void;
   onDelete: () => void;
+  onClearAll: () => void;
 }
 
 export function Toolbar({
@@ -16,10 +18,12 @@ export function Toolbar({
   color,
   strokeWidth,
   hasSelection,
+  shapesCount,
   onToolChange,
   onColorChange,
   onStrokeWidthChange,
   onDelete,
+  onClearAll,
 }: Props) {
   return (
     <div
@@ -71,6 +75,13 @@ export function Toolbar({
           Удалить фигуру
         </button>
       )}
+      <button
+        onClick={onClearAll}
+        disabled={shapesCount === 0}
+        style={{ marginLeft: "auto", color: "#b91c1c" }}
+      >
+        Очистить всё
+      </button>
     </div>
   );
 }

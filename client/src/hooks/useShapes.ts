@@ -12,11 +12,13 @@ export function useShapes() {
       setShapes((prev) => prev.map((s) => (s.id === u.id ? u : s)));
     const onDelete = (id: String) =>
       setShapes((prev) => prev.filter((s) => s.id !== id));
+    const onClear = () => setShapes([]);
 
     socket.on("history", onHistory);
     socket.on("shape:add", onAdd);
     socket.on("shape:update", onUpdate);
     socket.on("shape:delete", onDelete);
+    socket.on('shapes:clear', onClear);
 
     socket.emit("get:history");
 
@@ -25,6 +27,7 @@ export function useShapes() {
       socket.off("shape:add", onAdd);
       socket.off("shape:update", onUpdate);
       socket.off("shape:delete", onDelete);
+      socket.off('shapes:clear', onClear);
     };
   }, []);
 
@@ -43,5 +46,10 @@ export function useShapes() {
     socket.emit('shape:delete', id);
   };
 
-  return { shapes, addShape, updateShape, deleteShape };
+  const clearShapes = () => {
+  setShapes([]);
+  socket.emit('shapes:clear');
+};
+
+  return { shapes, addShape, updateShape, deleteShape, clearShapes };
 }

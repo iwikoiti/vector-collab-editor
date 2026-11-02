@@ -48,6 +48,11 @@ io.on('connection', (socket) => {
     shapes.splice(idx, 1);
     socket.broadcast.emit("shape:delete", id);
   });
+
+  socket.on('shapes:clear', () => {
+  shapes.length = 0;
+  socket.broadcast.emit('shapes:clear');
+});
 });
 
 const PORT = 3001;

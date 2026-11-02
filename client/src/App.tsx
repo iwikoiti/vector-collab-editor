@@ -4,7 +4,8 @@ import { Toolbar } from "./components/Toolbar";
 import { useShapes } from "./hooks/useShapes";
 
 export default function App() {
-  const { shapes, addShape, updateShape, deleteShape } = useShapes();
+  const { shapes, addShape, updateShape, deleteShape, clearShapes } =
+    useShapes();
   const [tool, setTool] = useState<Tool>("rect");
   const [color, setColor] = useState("#e11d48");
   const [strokeWidth, setStrokeWidth] = useState(2);
@@ -38,6 +39,13 @@ export default function App() {
     else setStrokeWidth(w);
   };
 
+  const handleClearAll = () => {
+    if (shapes.length === 0) return;
+    if (!window.confirm(`Удалить все фигуры (${shapes.length})?`)) return;
+    clearShapes();
+    setSelectedId(null); // выделение больше не существует
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <Toolbar
@@ -48,6 +56,8 @@ export default function App() {
         onToolChange={setTool}
         onColorChange={handleColorChange}
         onStrokeWidthChange={handleStrokeWidthChange}
+        shapesCount={shapes.length}
+        onClearAll={handleClearAll}
         onDelete={() => {
           if (selectedShape) {
             deleteShape(selectedShape.id);
